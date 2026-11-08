@@ -97,14 +97,10 @@ double nowSeconds() {
     return duration<double>(steady_clock::now().time_since_epoch()).count();
 }
 
-// Deja el estado GL/cocos coherente tras dibujar nosotros.
-// VERIFY: en cocos2d-x 2.2.x, ccGLInvalidateStateCache() parece llamar también a kmGLFreeAll()
-// (vacía las pilas de matrices). Si tras el primer nodo de capa los objetos/HUD aparecen mal
-// colocados o desaparecen, esta es la primera sospechosa: habría que sustituirla por llamadas
-// individuales (ccGLUseProgram, ccGLBindTexture2D, ccGLBlendFunc) que mantienen la caché coherente.
-void restoreCocosState() {
-    ccGLInvalidateStateCache();  // cocos cachea programa/textura/blend: hay que invalidarlo
-}
+// NOTA (confirmado con un crash real en Android, km_mat4_stack_pop dentro de CCNode::visit):
+// NO se debe invalidar la caché global de cocos tras dibujar, porque esa función también vacía las
+// pilas de matrices. En su lugar, los cambios de programa, textura y blending se hacen SIEMPRE por las
+// funciones de cocos (ccGLUseProgram, ccGLBindTexture2D, ccGLBlendFunc), que mantienen su caché coherente.
 
 }  // namespace
 
@@ -541,7 +537,7 @@ void Renderer::beginFrame(const kmMat4& mvp) {
     }
 
     // 4) compute shader
-    f.UseProgram(m_csProg);
+    ccGLUseProgram(m_csProg);
     f.Uniform4f(m_uView, minX, minY, maxX, maxY);
     f.Uniform1f(m_uTime, float(nowSeconds() - m_startTime));
     f.Uniform1f(m_uAudio, gd::audioScale());
@@ -554,7 +550,7 @@ void Renderer::beginFrame(const kmMat4& mvp) {
     f.BindBufferBase(gl::kShaderStorageBuffer, 6, m_current->cmdBuf);
     f.DispatchCompute(m_current->groupCount, 1, 1);
     f.MemoryBarrier(m_es ? gl::kPostComputeBarrierEs : gl::kPostComputeBarrierDesktop);
-    f.UseProgram(0);
+    ccGLUseProgram(0);
 
     if (m_diagFrames > 0) {
         gl::checkError("compute shader");
@@ -573,7 +569,7 @@ void Renderer::drawLayer(int zLayer, const kmMat4& mvp) {
     for (auto& r : m_current->runs) if (r.zLayer == zLayer) { any = true; break; }
     if (!any) return;
 
-    f.UseProgram(m_drawProg);
+    ccGLUseProgram(m_drawProg);
     f.UniformMatrix4fv(m_uMvp, 1, GL_FALSE, mvp.mat);
     f.Uniform1i(m_uTex, 0);
     f.BindVertexArray(m_vao);
@@ -583,9 +579,9 @@ void Renderer::drawLayer(int zLayer, const kmMat4& mvp) {
 
     for (auto& r : m_current->runs) {
         if (r.zLayer != zLayer) continue;
-        if (r.blend) glBlendFunc(kBlendSrc, kBlendDst);
-        else glBlendFunc(kNormalSrc, kNormalDst);
-        glBindTexture(GL_TEXTURE_2D, r.texture);
+        if (r.blend) ccGLBlendFunc(kBlendSrc, kBlendDst);
+        else ccGLBlendFunc(kNormalSrc, kNormalDst);
+        ccGLBindTexture2D(r.texture);
 
         if (m_es) {
             // ES 3.1: sin multi-draw y sin baseInstance. Un draw indirecto por work group; el offset
@@ -605,8 +601,7 @@ void Renderer::drawLayer(int zLayer, const kmMat4& mvp) {
 
     f.BindVertexArray(0);
     f.BindBuffer(gl::kDrawIndirectBuffer, 0);
-    f.UseProgram(0);
-    restoreCocosState();
+    ccGLUseProgram(0);
 
     if (m_diagFrames > 0) gl::checkError("dibujado de la capa");
 }
