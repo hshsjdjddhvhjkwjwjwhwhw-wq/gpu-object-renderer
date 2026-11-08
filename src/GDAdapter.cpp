@@ -33,6 +33,7 @@ constexpr float kDeg2Rad = 3.14159265358979f / 180.f;
 constexpr const char* kSheets[] = {"GJ_GameSheet",  "GJ_GameSheet02", "GJ_GameSheetGlow",
                                    "FireSheet",     "ParticleSheet",  "PixelSheet"};
 
+size_t g_skippedInvisible = 0;  // diagnóstico (C2): sprites descartados por !isVisible() al cargar
 std::unordered_map<unsigned, uint8_t> g_rank;  // nombre GL de textura -> rango de hoja
 
 void buildRankMap() {
@@ -114,7 +115,8 @@ constexpr int kPulseTypeColor = -1;
 
 void emit(LevelData& L, CCSprite* sp, const Xf& xf, SpriteType type, int channel,
           uint32_t combo, float rotSpeed, bool audio, int zLayer, int zOrder) {
-    if (!sp || !sp->isVisible()) return;
+    if (!sp) return;
+    if (!sp->isVisible()) { ++g_skippedInvisible; return; }
     auto* tex = sp->getTexture();
     if (!tex) return;
 
@@ -161,6 +163,7 @@ void emit(LevelData& L, CCSprite* sp, const Xf& xf, SpriteType type, int channel
 
 LevelData collect(GJBaseGameLayer* layer) {
     buildRankMap();
+    g_skippedInvisible = 0;
 
     LevelData L;
     L.combos.emplace_back();  // combo 0: objetos sin grupos (identidad, nunca se mueven)
@@ -230,6 +233,8 @@ LevelData collect(GJBaseGameLayer* layer) {
             }
         }
     }
+    log::info("[gpu-renderer] recolectados {} sprites; descartados por invisibles al cargar: {}",
+              L.sprites.size(), g_skippedInvisible);
     return L;
 }
 

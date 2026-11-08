@@ -150,12 +150,6 @@ bool Renderer::checkLimits() {
                   "se usa el render normal de GD", kNeededSsbos, L.computeSsbo, L.combinedSsbo, L.ssboBindings);
         return false;
     }
-    if (L.es && L.vertexSsbo < 1) {
-        // En ES 3.1 los vertex shaders NO tienen que soportar SSBO (el mínimo de la especificación es 0).
-        log::warn("[gpu-renderer] este driver no permite SSBO en vertex shaders "
-                  "(GL_MAX_VERTEX_SHADER_STORAGE_BLOCKS = 0): se usa el render normal de GD");
-        return false;
-    }
     m_tile = tile;
     return true;
 }
@@ -197,7 +191,6 @@ bool Renderer::initGL() {
     m_uAudio = f.GetUniformLocation(m_csProg, "uAudio");
     m_uMvp = f.GetUniformLocation(m_drawProg, "uMvp");
     m_uTex = f.GetUniformLocation(m_drawProg, "uTex");
-    m_uBase = f.GetUniformLocation(m_drawProg, "uBase");  // solo existe en la ruta ES
 
     static const float corners[8] = {-1, -1, 1, -1, -1, 1, 1, 1};
     static const uint16_t indices[6] = {0, 1, 2, 2, 1, 3};
@@ -216,7 +209,7 @@ bool Renderer::initGL() {
     gl::checkError("inicialización de GL");
     m_ready = true;
     log::info("[gpu-renderer] listo: ruta {}, {} hilos por work group",
-              m_es ? "OpenGL ES 3.1 (SSBO en el vertex shader + glDrawElementsIndirect por work group)"
+              m_es ? "OpenGL ES 3.1 (atributos instanciados + glDrawElementsIndirect por work group)"
                    : "OpenGL 4.3 (atributos instanciados + glMultiDrawElementsIndirect)",
               m_tile);
     return true;
@@ -298,8 +291,7 @@ void Renderer::onLevelLoaded(GJBaseGameLayer* layer) {
     for (uint32_t i = 0; i < kColorChannels; ++i)
         if (used[i]) m_usedChannels.push_back(uint16_t(i));
 
-    // VAO: quad (loc 0). Solo en escritorio, además, atributos instanciados leídos del raw
-    // sprite buffer (loc 1..6); en ES esos datos los lee el vertex shader como SSBO.
+    // VAO: quad (loc 0) + atributos instanciados leídos del raw sprite buffer (loc 1..6).
     f.GenVertexArrays(1, &m_vao);
     f.BindVertexArray(m_vao);
     f.BindBuffer(gl::kArrayBuffer, m_quadVbo);
@@ -320,6 +312,22 @@ void Renderer::onLevelLoaded(GJBaseGameLayer* layer) {
         attr(4, 4, 32);  // color
         attr(5, 2, 48);  // uvEy
         attr(6, 1, 56);  // rot
+    } else {
+        // ES 3.1: no hay baseInstance, así que los atributos instanciados van por el binding 1 y,
+        // antes de cada draw, se mueve su offset con glBindVertexBuffer (ver drawLayer).
+        auto attr = [&](GLuint loc, GLint n, GLuint off) {
+            f.EnableVertexAttribArray(loc);
+            f.VertexAttribFormat(loc, n, GL_FLOAT, GL_FALSE, off);
+            f.VertexAttribBinding(loc, 1);
+        };
+        attr(1, 2, 0);   // pos
+        attr(2, 2, 8);   // halfSize
+        attr(3, 4, 16);  // uvA
+        attr(4, 4, 32);  // color
+        attr(5, 2, 48);  // uvEy
+        attr(6, 1, 56);  // rot
+        f.VertexBindingDivisor(1, 1);
+        f.BindVertexBuffer(1, m_rawBuf, 0, GLsizei(kRawSpriteSize));
     }
     f.BindVertexArray(0);
     f.BindBuffer(gl::kArrayBuffer, 0);
@@ -327,7 +335,6 @@ void Renderer::onLevelLoaded(GJBaseGameLayer* layer) {
     // un nodo por ZLayer, ubicado donde iría su batch node vanilla
     std::set<int> zs;
     for (auto& s : m_level.sprites) zs.insert(s.zLayer);
-    extern CCNode* gpurMakeLayerNode(int zLayer);  // definido en main.cpp
     for (int z : zs) {
         auto* node = gpurMakeLayerNode(z);
         layer->m_objectLayer->addChild(node, gd::batchZOrder(layer, z));
@@ -571,8 +578,6 @@ void Renderer::drawLayer(int zLayer, const kmMat4& mvp) {
     f.Uniform1i(m_uTex, 0);
     f.BindVertexArray(m_vao);
     f.BindBuffer(gl::kDrawIndirectBuffer, m_current->cmdBuf);
-    // ES: el vertex shader lee el raw sprite buffer como SSBO (se vuelve a enlazar por si otro código tocó el binding)
-    if (m_es) f.BindBufferBase(gl::kShaderStorageBuffer, kRawBinding, m_rawBuf);
     glEnable(GL_BLEND);
     f.ActiveTexture(gl::kTexture0);
 
@@ -583,10 +588,11 @@ void Renderer::drawLayer(int zLayer, const kmMat4& mvp) {
         glBindTexture(GL_TEXTURE_2D, r.texture);
 
         if (m_es) {
-            // ES 3.1: sin multi-draw y sin baseInstance. Un draw indirecto por work group;
-            // uBase le dice al vertex shader dónde empieza su porción del raw sprite buffer.
+            // ES 3.1: sin multi-draw y sin baseInstance. Un draw indirecto por work group; el offset
+            // del binding 1 apunta al primer sprite de ese grupo en el raw sprite buffer.
             for (uint32_t g = r.firstGroup; g < r.firstGroup + r.groupCount; ++g) {
-                f.Uniform1ui(m_uBase, m_current->outBase[g]);
+                f.BindVertexBuffer(1, m_rawBuf, ptrdiff_t(m_current->outBase[g]) * ptrdiff_t(kRawSpriteSize),
+                                   GLsizei(kRawSpriteSize));
                 f.DrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_SHORT,
                                        reinterpret_cast<const void*>(uintptr_t(g) * kDrawCmdSize));
             }

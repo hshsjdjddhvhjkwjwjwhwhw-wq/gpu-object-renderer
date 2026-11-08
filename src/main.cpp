@@ -42,7 +42,7 @@ public:
 };
 
 // usado por Renderer.cpp
-namespace gpur { CCNode* gpurMakeLayerNode(int zLayer) { return GpuLayerNode::create(zLayer); } }
+CCNode* gpurMakeLayerNode(int zLayer) { return GpuLayerNode::create(zLayer); }
 
 // ---------------------------------------------------------------------------
 // Hooks
@@ -63,13 +63,12 @@ class $modify(GpuPlayLayer, PlayLayer) {
     }
 };
 
-// updateVisibility de GJBaseGameLayer es inline en GD 2.2081 y no se puede enganchar.
-// Se engancha la de PlayLayer, que si tiene direccion en los bindings (no en Android).
-#ifndef GEODE_IS_ANDROID
-class $modify(GpuPlayLayerVisibility, PlayLayer) {
+class $modify(GpuBaseLayer, GJBaseGameLayer) {
+    // Con el renderer activo se omiten los visibility checks de GD (la parte más lenta):
+    // la GPU hace el culling. VERIFY: confirmar que esta función no hace nada más necesario
+    // para el gameplay (activación de objetos, etc.).
     void updateVisibility(float dt) {
         if (Renderer::get().active()) return;
-        PlayLayer::updateVisibility(dt);
+        GJBaseGameLayer::updateVisibility(dt);
     }
 };
-#endif

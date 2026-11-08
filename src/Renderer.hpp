@@ -6,12 +6,16 @@
 #include <string>
 #include <unordered_map>
 
+// Definida en main.cpp, en el namespace GLOBAL (por eso se declara fuera de gpur).
+cocos2d::CCNode* gpurMakeLayerNode(int zLayer);
+
 namespace gpur {
 
 // Tramo consecutivo del orden de dibujo con el mismo ZLayer, textura y blending.
 //  - Escritorio: se dibuja con UN glMultiDrawElementsIndirect (un draw command por work group).
-//  - ES 3.1 (Android): no hay multi-draw; se dibuja con UN glDrawElementsIndirect por work group,
-//    pero con textura y blending fijados UNA vez por run.
+//  - ES 3.1 (Android): no hay multi-draw ni baseInstance; se dibuja con UN glDrawElementsIndirect por
+//    work group (moviendo el offset del buffer de atributos con glBindVertexBuffer), pero con
+//    textura y blending fijados UNA vez por run.
 struct Run {
     int      zLayer;
     uint32_t texture;
@@ -68,7 +72,7 @@ private:
     LevelData m_level;
 
     GLuint m_csProg = 0, m_drawProg = 0;
-    GLint m_uView = -1, m_uTime = -1, m_uAudio = -1, m_uMvp = -1, m_uTex = -1, m_uBase = -1;
+    GLint m_uView = -1, m_uTime = -1, m_uAudio = -1, m_uMvp = -1, m_uTex = -1;
     GLuint m_quadVbo = 0, m_quadIbo = 0, m_vao = 0;
     GLuint m_spriteBuf = 0, m_comboBuf = 0, m_colorBuf = 0, m_rawBuf = 0;
 

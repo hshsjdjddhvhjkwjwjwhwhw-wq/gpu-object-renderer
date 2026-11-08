@@ -69,6 +69,10 @@
     X(VertexAttribPointer,      void,   (GLuint, GLint, GLenum, GLboolean, GLsizei, const void*)) \
     X(VertexAttribDivisor,      void,   (GLuint, GLuint))                                    \
     X(DrawElementsIndirect,     void,   (GLenum, GLenum, const void*))                       \
+    X(BindVertexBuffer,         void,   (GLuint, GLuint, ptrdiff_t, GLsizei))                \
+    X(VertexAttribFormat,       void,   (GLuint, GLint, GLenum, GLboolean, GLuint))          \
+    X(VertexAttribBinding,      void,   (GLuint, GLuint))                                    \
+    X(VertexBindingDivisor,     void,   (GLuint, GLuint))                                    \
     X(GetIntegeri_v,            void,   (GLenum, GLuint, GLint*))                            \
     X(ActiveTexture,            void,   (GLenum))
 
@@ -89,8 +93,9 @@ constexpr GLbitfield kVertexAttribArrayBarrier = 0x1, kCommandBarrier = 0x40,
                      kShaderStorageBarrier = 0x2000;
 // Escritorio: el compute escribe atributos instanciados + draw commands.
 constexpr GLbitfield kPostComputeBarrierDesktop = kVertexAttribArrayBarrier | kCommandBarrier;
-// ES: el vertex shader lee el raw sprite buffer como SSBO + draw commands indirectos.
-constexpr GLbitfield kPostComputeBarrierEs = kShaderStorageBarrier | kCommandBarrier;
+// ES (v0.2.1): igual que escritorio. El raw sprite buffer se lee como atributos instanciados
+// (muchos drivers ES, p. ej. Mali, dan 0 SSBO en el vertex shader).
+constexpr GLbitfield kPostComputeBarrierEs = kVertexAttribArrayBarrier | kCommandBarrier;
 
 // glGetIntegerv / glGetIntegeri_v (mismos valores en GL 4.3 y ES 3.1)
 constexpr GLenum kMaxComputeWorkGroupInvocations = 0x90EB, kMaxComputeWorkGroupCount = 0x91BE,

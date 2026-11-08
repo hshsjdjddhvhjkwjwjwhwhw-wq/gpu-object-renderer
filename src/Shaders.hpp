@@ -148,47 +148,26 @@ void main() {
 
 // ---------------------------------------------------------------------------
 // Etapa de render (sección 2.4): un quad instanciado por sprite.
-//  - Escritorio: transformación y color llegan como atributos instanciados
-//    (baseInstance del draw command apunta a la porción del raw sprite buffer).
-//  - ES 3.1: el vertex shader lee el raw sprite buffer como SSBO con
-//    uBase + gl_InstanceID (uBase = primer sprite del work group, un uniform
-//    que se fija antes de cada glDrawElementsIndirect).
+// Transformación y color llegan como atributos instanciados (ambas plataformas):
+//  - Escritorio: baseInstance del draw command apunta a la porción del raw sprite buffer.
+//  - ES 3.1 (sin baseInstance): antes de cada glDrawElementsIndirect se mueve el offset del
+//    binding 1 con glBindVertexBuffer (ver Renderer::drawLayer).
 // ---------------------------------------------------------------------------
 inline constexpr const char* kVert = R"GLSL(
 layout(location = 0) in vec2  aCorner;   // (-1,-1) bl, (1,-1) br, (-1,1) tl, (1,1) tr
 
-#ifdef GPUR_ES
-struct Raw {
-    vec2 pos; vec2 halfSize;
-    vec4 uvA;
-    vec4 color;
-    vec2 uvEy; float rot; float pad;
-};
-layout(std430, binding = 5) readonly buffer RawIn { Raw raw[]; };
-uniform uint uBase;
-#else
 layout(location = 1) in vec2  iPos;
 layout(location = 2) in vec2  iHalf;
 layout(location = 3) in vec4  iUvA;
 layout(location = 4) in vec4  iColor;
 layout(location = 5) in vec2  iUvEy;
 layout(location = 6) in float iRot;
-#endif
 
 uniform mat4 uMvp;
 out vec2 vUv;
 out vec4 vColor;
 
 void main() {
-#ifdef GPUR_ES
-    Raw r = raw[uBase + uint(gl_InstanceID)];
-    vec2  iPos  = r.pos;
-    vec2  iHalf = r.halfSize;
-    vec4  iUvA  = r.uvA;
-    vec4  iColor = r.color;
-    vec2  iUvEy = r.uvEy;
-    float iRot  = r.rot;
-#endif
     float c = cos(iRot), s = sin(iRot);
     vec2 l = aCorner * iHalf;
     vec2 w = iPos + vec2(c * l.x - s * l.y, s * l.x + c * l.y);
