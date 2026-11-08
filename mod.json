@@ -1,64 +1,69 @@
 {
-	"geode": "5.9.0",
-	"gd": {
-		"win": "2.2081",
-		"android32": "2.2081",
-		"android64": "2.2081"
-	},
-	"version": "v0.2.3",
-	"id": "tunombre.gpu-object-renderer",
-	"name": "GPU Object Renderer",
-	"developer": "tunombre",
-	"description": "Renderiza los objetos de los niveles con compute shaders (visibilidad, color y transformaciones de grupo en la GPU). Requiere OpenGL 4.3 (Windows) u OpenGL ES 3.1 (Android).",
-	"tags": ["performance"],
-	"settings": {
-		"enabled": {
-			"type": "bool",
-			"default": true,
-			"name": "Activar render por GPU",
-			"description": "Reemplaza el render de objetos de GD. Si tu GPU no soporta OpenGL 4.3 (Windows) u OpenGL ES 3.1 con compute shaders (Android), el mod se desactiva solo."
-		},
-		"debug-log": {
-			"type": "bool",
-			"default": true,
-			"name": "Depuración: escribir diagnóstico en el log",
-			"description": "Al cargar el nivel escribe en el log (líneas [gpu-renderer]) muestras de sprites, el contenido de m_objectLayer y el color de los canales más usados."
-		},
-		"debug-hide-vanilla": {
-			"type": "bool",
-			"default": false,
-			"name": "Depuración: ocultar el render normal de objetos",
-			"description": "Oculta los batch nodes de objetos de GD para que solo dibuje la GPU. Se restauran al salir del nivel. Si desaparece el jugador o la interfaz, desactívalo."
-		},
-		"debug-flat-color": {
-			"type": "bool",
-			"default": false,
-			"name": "Depuración: pintar todo de magenta",
-			"description": "Todo lo que dibuja el mod sale magenta (solo se respeta la forma de la textura). Sirve para ver posición y tamaño sin que importe el color."
-		},
-		"debug-collect-hidden": {
-			"type": "bool",
-			"default": false,
-			"name": "Depuración: recoger también objetos ocultos al cargar",
-			"description": "Por defecto se descartan los sprites que GD tenía invisibles al cargar el nivel. Con esto se recogen todos."
-		},
-		"work-groups": {
-			"type": "int",
-			"default": 1024,
-			"min": 64,
-			"max": 16384,
-			"control": { "input": true },
-			"name": "Work groups (Windows)",
-			"description": "Cantidad objetivo de work groups (cada uno con su draw command). La explicación de Bismuth sugiere ~2.5x los núcleos de tu GPU. Solo se usa en Windows."
-		},
-		"work-groups-mobile": {
-			"type": "int",
-			"default": 64,
-			"min": 16,
-			"max": 4096,
-			"control": { "input": true },
-			"name": "Work groups (Android)",
-			"description": "Igual que el ajuste de Windows, pero para Android. En OpenGL ES 3.1 no hay multi-draw: cada work group cuesta UNA llamada de dibujo desde la CPU por frame, así que el valor por defecto es mucho menor. Solo se usa en Android."
-		}
-	}
+  "geode": "5.9.0",
+  "gd": {
+    "win": "2.2081",
+    "android": "2.2081"
+  },
+  "version": "v0.2.3",
+  "id": "tunombre.gpu-object-renderer",
+  "name": "GPU Object Renderer",
+  "developer": "tunombre",
+  "description": "Renderiza los objetos de los niveles con compute shaders (visibilidad, color y transformaciones de grupo en la GPU). Requiere OpenGL 4.3 (Windows) u OpenGL ES 3.1 (Android).",
+  "tags": [
+    "performance"
+  ],
+  "settings": {
+    "enabled": {
+      "type": "bool",
+      "default": true,
+      "name": "Activar render por GPU",
+      "description": "Reemplaza el render de objetos de GD. Si tu GPU no soporta OpenGL 4.3 (Windows) u OpenGL ES 3.1 con compute shaders (Android), el mod se desactiva solo."
+    },
+    "debug-log": {
+      "type": "bool",
+      "default": true,
+      "name": "Depuración: escribir diagnóstico en el log",
+      "description": "Al cargar el nivel escribe en el log (líneas [gpu-renderer]) muestras de sprites, el contenido de m_objectLayer y el color de los canales más usados."
+    },
+    "debug-hide-vanilla": {
+      "type": "bool",
+      "default": false,
+      "name": "Depuración: ocultar el render normal de objetos",
+      "description": "Oculta los batch nodes de objetos de GD para que solo dibuje la GPU. Se restauran al salir del nivel. Si desaparece el jugador o la interfaz, desactívalo."
+    },
+    "debug-flat-color": {
+      "type": "bool",
+      "default": false,
+      "name": "Depuración: pintar todo de magenta",
+      "description": "Todo lo que dibuja el mod sale magenta (solo se respeta la forma de la textura). Sirve para ver posición y tamaño sin que importe el color."
+    },
+    "debug-collect-hidden": {
+      "type": "bool",
+      "default": false,
+      "name": "Depuración: recoger también objetos ocultos al cargar",
+      "description": "Por defecto se descartan los sprites que GD tenía invisibles al cargar el nivel. Con esto se recogen todos."
+    },
+    "work-groups": {
+      "type": "int",
+      "default": 1024,
+      "min": 64,
+      "max": 16384,
+      "control": {
+        "input": true
+      },
+      "name": "Work groups (Windows)",
+      "description": "Cantidad objetivo de work groups (cada uno con su draw command). La explicación de Bismuth sugiere ~2.5x los núcleos de tu GPU. Solo se usa en Windows."
+    },
+    "work-groups-mobile": {
+      "type": "int",
+      "default": 64,
+      "min": 16,
+      "max": 4096,
+      "control": {
+        "input": true
+      },
+      "name": "Work groups (Android)",
+      "description": "Igual que el ajuste de Windows, pero para Android. En OpenGL ES 3.1 no hay multi-draw: cada work group cuesta UNA llamada de dibujo desde la CPU por frame, así que el valor por defecto es mucho menor. Solo se usa en Android."
+    }
+  }
 }
