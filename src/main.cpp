@@ -42,7 +42,7 @@ public:
 };
 
 // usado por Renderer.cpp
-CCNode* gpurMakeLayerNode(int zLayer) { return GpuLayerNode::create(zLayer); }
+namespace gpur { CCNode* gpurMakeLayerNode(int zLayer) { return GpuLayerNode::create(zLayer); } }
 
 // ---------------------------------------------------------------------------
 // Hooks
