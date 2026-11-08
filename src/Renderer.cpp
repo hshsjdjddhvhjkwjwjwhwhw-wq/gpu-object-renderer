@@ -187,6 +187,7 @@ bool Renderer::initGL() {
     m_uAudio = f.GetUniformLocation(m_csProg, "uAudio");
     m_uMvp = f.GetUniformLocation(m_drawProg, "uMvp");
     m_uTex = f.GetUniformLocation(m_drawProg, "uTex");
+    m_uFlat = f.GetUniformLocation(m_drawProg, "uFlat");
 
     static const float corners[8] = {-1, -1, 1, -1, -1, 1, 1, 1};
     static const uint16_t indices[6] = {0, 1, 2, 2, 1, 3};
@@ -244,7 +245,14 @@ void Renderer::onLevelLoaded(GJBaseGameLayer* layer) {
     releaseLevel();
     if (!initGL()) return;
 
-    m_level = gd::collect(layer);
+    auto* mod = Mod::get();
+    m_hideVanilla = mod->getSettingValue<bool>("debug-hide-vanilla");
+    m_flatColor = mod->getSettingValue<bool>("debug-flat-color");
+    m_debugLog = mod->getSettingValue<bool>("debug-log");
+    log::info("[gpu-renderer] ajustes de depuración: ocultar vanilla={}, color plano={}, recoger ocultos={}, log={}",
+              m_hideVanilla, m_flatColor, mod->getSettingValue<bool>("debug-collect-hidden"), m_debugLog);
+
+    m_level = gd::collect(layer, mod->getSettingValue<bool>("debug-collect-hidden"), m_debugLog);
     if (m_level.sprites.empty()) return;
 
     // ¿cabe el nivel en un bloque SSBO? (ES 3.1 garantiza 128 MB; los drivers reales dan mucho más)
@@ -337,6 +345,42 @@ void Renderer::onLevelLoaded(GJBaseGameLayer* layer) {
         m_nodes.push_back(node);
     }
 
+    // Depuración: qué hay dentro de m_objectLayer y (opcional) ocultar el render vanilla de objetos.
+    // Solo se ocultan CCSpriteBatchNode (nunca nuestros nodos, que son CCNode); se restauran en releaseLevel().
+    if (m_hideVanilla || m_debugLog) {
+        if (auto* kids = layer->m_objectLayer->getChildren()) {
+            for (auto* node : CCArrayExt<CCNode*>(kids)) {
+                auto* batch = typeinfo_cast<CCSpriteBatchNode*>(node);
+                if (m_debugLog) {
+                    unsigned texName = (batch && batch->getTexture()) ? batch->getTexture()->getName() : 0u;
+                    log::info("[gpu-renderer] m_objectLayer hijo: z={} visible={} hijos={} esBatchNode={} textura={}",
+                              node->getZOrder(), node->isVisible(), node->getChildrenCount(),
+                              batch != nullptr, texName);
+                }
+                if (m_hideVanilla && batch && batch->isVisible()) {
+                    batch->setVisible(false);
+                    m_hidden.push_back(static_cast<CCNode*>(batch));
+                }
+            }
+        }
+        if (m_hideVanilla)
+            log::info("[gpu-renderer] batch nodes vanilla ocultados: {}", m_hidden.size());
+    }
+
+    // Depuración: canales de color más usados por los sprites recolectados.
+    m_dbgFrame = 0;
+    m_dbgTop.clear();
+    if (m_debugLog) {
+        std::vector<uint32_t> cnt(kColorChannels, 0u);
+        for (auto& s : m_level.sprites)
+            if (s.type != SpriteType::Black) ++cnt[s.channel];
+        for (uint32_t i = 0; i < kColorChannels; ++i)
+            if (cnt[i]) m_dbgTop.push_back({cnt[i], uint16_t(i)});
+        std::sort(m_dbgTop.begin(), m_dbgTop.end(),
+                  [](const auto& a, const auto& b) { return a.first > b.first; });
+        if (m_dbgTop.size() > 10) m_dbgTop.resize(10);
+    }
+
     m_signature = 0;
     m_current = nullptr;
     m_frame = -1;
@@ -352,6 +396,8 @@ void Renderer::onLevelUnloaded() { releaseLevel(); }
 
 void Renderer::releaseLevel() {
     m_active = false;
+    for (auto& n : m_hidden) n->setVisible(true);  // restaurar el render vanilla (depuración)
+    m_hidden.clear();
     if (m_contextLost) abandonGL();  // antes de tocar nada de GL
     for (auto& n : m_nodes) n->removeFromParentAndCleanup(true);
     m_nodes.clear();
@@ -517,6 +563,22 @@ void Renderer::beginFrame(const kmMat4& mvp) {
     updateBuffer(m_colorBuf, m_colors.size() * sizeof(float), m_colors.data());
     updateCombos();
 
+    // Depuración: color real de los canales más usados (frames 2 y 300 tras cargar el nivel)
+    if (m_debugLog) {
+        ++m_dbgFrame;
+        if (m_dbgFrame == 2 || m_dbgFrame == 300) {
+            for (auto& entry : m_dbgTop) {
+                const uint32_t n = entry.first;
+                const int ch = int(entry.second);
+                const float* p = &m_colors[size_t(ch) * 4];
+                log::info("[gpu-renderer] frame {}: canal {} usado por {} sprites; rgba=({:.2f},{:.2f},{:.2f},{:.2f}) "
+                          "existeEnGD={} blending={}",
+                          m_dbgFrame, ch, n, p[0], p[1], p[2], p[3],
+                          gd::channelHasSprite(m_layer, ch), bool(m_blend[size_t(ch)]));
+            }
+        }
+    }
+
     // 2) si cambió el blending, otro lote ordenado (reutilizado desde caché si ya existía)
     uint64_t sig = 1469598103934665603ull;
     for (auto ch : m_usedChannels) sig = fnv(sig, m_blend[ch] ? 2 : 1);
@@ -572,6 +634,7 @@ void Renderer::drawLayer(int zLayer, const kmMat4& mvp) {
     ccGLUseProgram(m_drawProg);
     f.UniformMatrix4fv(m_uMvp, 1, GL_FALSE, mvp.mat);
     f.Uniform1i(m_uTex, 0);
+    f.Uniform1f(m_uFlat, m_flatColor ? 1.f : 0.f);
     f.BindVertexArray(m_vao);
     f.BindBuffer(gl::kDrawIndirectBuffer, m_current->cmdBuf);
     glEnable(GL_BLEND);

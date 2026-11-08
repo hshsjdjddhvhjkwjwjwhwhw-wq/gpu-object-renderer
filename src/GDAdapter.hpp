@@ -7,7 +7,12 @@
 namespace gpur::gd {
 
 // Recorre los objetos del nivel y extrae sprites, combinaciones de grupos, etc.
-LevelData collect(GJBaseGameLayer* layer);
+// includeInvisible: (depuración) también recoge los sprites que GD tenía ocultos al cargar.
+// debugLog: escribe en el log muestras de sprites para comprobar tamaños y posiciones.
+LevelData collect(GJBaseGameLayer* layer, bool includeInvisible, bool debugLog);
+
+// (depuración) true si GD tiene un ColorActionSprite para ese canal; si no, fetchChannels deja blanco.
+bool channelHasSprite(GJBaseGameLayer* layer, int channel);
 
 // Color (rgba) y flag de blending de los 1101 canales, tal como están AHORA.
 void fetchChannels(GJBaseGameLayer* layer, float* rgba, std::bitset<kColorChannels>& blending);

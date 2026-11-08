@@ -34,6 +34,9 @@ constexpr const char* kSheets[] = {"GJ_GameSheet",  "GJ_GameSheet02", "GJ_GameSh
                                    "FireSheet",     "ParticleSheet",  "PixelSheet"};
 
 size_t g_skippedInvisible = 0;  // diagnóstico (C2): sprites descartados por !isVisible() al cargar
+bool g_includeInvisible = false;  // depuración: no descartar sprites ocultos
+bool g_debugLog = false;          // depuración: registrar muestras
+int  g_samples = 0;               // muestras ya registradas en este nivel
 std::unordered_map<unsigned, uint8_t> g_rank;  // nombre GL de textura -> rango de hoja
 
 void buildRankMap() {
@@ -116,12 +119,31 @@ constexpr int kPulseTypeColor = -1;
 void emit(LevelData& L, CCSprite* sp, const Xf& xf, SpriteType type, int channel,
           uint32_t combo, float rotSpeed, bool audio, int zLayer, int zOrder) {
     if (!sp) return;
-    if (!sp->isVisible()) { ++g_skippedInvisible; return; }
+    if (!sp->isVisible()) {
+        ++g_skippedInvisible;
+        if (!g_includeInvisible) return;
+    }
     auto* tex = sp->getTexture();
     if (!tex) return;
 
     // VERIFY: se asume que el quad está en coordenadas locales (sprite aún fuera de un batch).
     auto q = sp->getQuad();
+
+    // Depuración: comparar posición/escala del objeto con su quad, textureRect y contentSize.
+    // Sirve para saber si el quad está en coordenadas locales (como asume este código) o ya
+    // transformadas por el batch node de GD.
+    if (g_debugLog && g_samples < 8 && type == SpriteType::Base &&
+        (g_samples < 3 || std::fabs(xf.sx - 1.f) > 0.01f || std::fabs(xf.sy - 1.f) > 0.01f ||
+         std::fabs(xf.rot) > 0.01f)) {
+        ++g_samples;
+        CCRect tr = sp->getTextureRect();
+        CCSize csz = sp->getContentSize();
+        log::info("[gpu-renderer] muestra {}: pos=({:.1f},{:.1f}) escala=({:.2f},{:.2f}) rot={:.2f}rad visible={} | "
+                  "quad bl=({:.1f},{:.1f}) tr=({:.1f},{:.1f}) | textureRect={:.1f}x{:.1f} contentSize={:.1f}x{:.1f}",
+                  g_samples, xf.x, xf.y, xf.sx, xf.sy, xf.rot, sp->isVisible(),
+                  q.bl.vertices.x, q.bl.vertices.y, q.tr.vertices.x, q.tr.vertices.y,
+                  tr.size.width, tr.size.height, csz.width, csz.height);
+    }
     float cx = (q.bl.vertices.x + q.tr.vertices.x) * 0.5f;
     float cy = (q.bl.vertices.y + q.tr.vertices.y) * 0.5f;
     float hx = std::fabs(q.tr.vertices.x - q.bl.vertices.x) * 0.5f;
@@ -161,9 +183,12 @@ void emit(LevelData& L, CCSprite* sp, const Xf& xf, SpriteType type, int channel
 
 }  // namespace
 
-LevelData collect(GJBaseGameLayer* layer) {
+LevelData collect(GJBaseGameLayer* layer, bool includeInvisible, bool debugLog) {
     buildRankMap();
     g_skippedInvisible = 0;
+    g_includeInvisible = includeInvisible;
+    g_debugLog = debugLog;
+    g_samples = 0;
 
     LevelData L;
     L.combos.emplace_back();  // combo 0: objetos sin grupos (identidad, nunca se mueven)
@@ -233,8 +258,9 @@ LevelData collect(GJBaseGameLayer* layer) {
             }
         }
     }
-    log::info("[gpu-renderer] recolectados {} sprites; descartados por invisibles al cargar: {}",
-              L.sprites.size(), g_skippedInvisible);
+    log::info("[gpu-renderer] objetos de GD: {}; recolectados {} sprites; sprites invisibles al cargar: {} ({})",
+              layer->m_objects ? layer->m_objects->count() : 0u, L.sprites.size(), g_skippedInvisible,
+              includeInvisible ? "se recogieron igualmente" : "descartados");
     return L;
 }
 
@@ -255,6 +281,10 @@ void fetchChannels(GJBaseGameLayer* layer, float* rgba, std::bitset<kColorChanne
         p[3] = c->m_opacity;
         blending[i] = c->m_colorAction ? c->m_colorAction->m_blending : false;
     }
+}
+
+bool channelHasSprite(GJBaseGameLayer* layer, int channel) {
+    return layer->m_effectManager->getColorSprite(channel) != nullptr;
 }
 
 float groupAlpha(GJBaseGameLayer* layer, int group) {

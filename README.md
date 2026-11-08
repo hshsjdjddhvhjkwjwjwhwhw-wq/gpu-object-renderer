@@ -1,4 +1,4 @@
-# GPU Object Renderer (mod de Geode para Geometry Dash 2.2081)
+# GPU Object Renderer (mod de Geode para Geometry Dash 2.2074)
 
 Mod de optimización basado en la explicación técnica de Bismuth (iliasHDZ):
 https://github.com/iliasHDZ/Bismuth/blob/master/TechnicalExplanation.md
@@ -6,7 +6,7 @@ https://github.com/iliasHDZ/Bismuth/blob/master/TechnicalExplanation.md
 Reemplaza SOLO el render de objetos: visibilidad, color y transformaciones de grupo se
 resuelven en la GPU con un compute shader. Los efectos de shader y lo demás del juego no se tocan.
 
-**Versión: v0.2.0 (Windows + Android 32/64). NO se ha compilado ni ejecutado nunca.**
+**Versión: v0.2.3 (Windows + Android 32/64). v0.2.3 = v0.2.2 + ajustes y logs de DEPURACIÓN (no corrige aún los gráficos). Compilada en Android por GitHub Actions desde v0.2.2; v0.2.3 sin compilar todavía.**
 Lee la sección [Estado real: qué está probado y qué no](#estado-real-qué-está-probado-y-qué-no) antes de confiar en nada.
 
 ## Plataformas
@@ -53,7 +53,7 @@ Cambios hechos tras contrastar los nombres con la documentación pública de Geo
 - `buildRankMap()` prueba la clave de caché de textura con el nombre y con la ruta resuelta (en Android puede diferir).
 
 ### `mod.json`
-- `gd`: `win` y `android` (cubre android32 y android64), ambos `2.2081`. `geode`: `5.0.0`.
+- `gd`: `win`, `android32` y `android64`, todos `2.2074`.
 - Nuevo ajuste `work-groups-mobile` (por defecto **64**, rango 16..4096), usado solo en Android. El ajuste `work-groups` (1024) pasa a ser solo de Windows.
 
 **Por qué 64 y no 1024 en móvil:** en ES 3.1 no hay multi-draw, así que cada work group cuesta una llamada de dibujo desde la CPU en cada frame (y un `glUniform1ui`). 1024 llamadas por capa y frame es mucho para la CPU de un teléfono; 64 es un punto de partida razonable pero es una **estimación, no una medición**: pruébalo con 32, 64, 128 y 256 en tu dispositivo. Un work group más grande no es más lento por sí mismo (el compute procesa su rango por bloques de `local_size`), pero reduce el paralelismo si hay pocos.
@@ -130,3 +130,12 @@ Todo está marcado con `VERIFY` o `STUB` en el código.
 14. Interceptar triggers de movimiento/rotación para aplicarlos directo a `GpuCombo`. No lo toqué: requiere hooks sobre funciones cuyos nombres y firmas no pude verificar, y no quise inventarlos. Hoy la matriz de cada combinación se sigue derivando de la pose real de un objeto de referencia (la CPU de GD sigue moviendo los objetos).
 15. Sprites animados, HSV por objeto, skew y flips manuales de hijos (heredado de v0.1).
 16. Solo hay un nodo de render por ZLayer; no se probó el orden respecto al jugador.
+
+
+## Depuración (v0.2.3)
+Ajustes `debug-*` en Geode (todos apagados salvo el log). Sirven para separar los problemas visuales:
+- `debug-log`: escribe en el log `[gpu-renderer]` muestras de sprites, hijos de `m_objectLayer` y el color de los canales más usados (frames 2 y 300).
+- `debug-hide-vanilla`: oculta los `CCSpriteBatchNode` de `m_objectLayer` (se restauran al salir del nivel).
+- `debug-flat-color`: todo lo que dibuja el mod sale magenta.
+- `debug-collect-hidden`: recoge también los sprites que GD tenía invisibles al cargar.
+Después de cambiar un ajuste hay que reiniciar GD y volver a entrar al nivel.

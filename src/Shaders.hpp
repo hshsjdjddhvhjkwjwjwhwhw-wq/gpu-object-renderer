@@ -182,11 +182,17 @@ inline constexpr const char* kFrag = R"GLSL(
 in vec2 vUv;
 in vec4 vColor;
 uniform sampler2D uTex;
+uniform float uFlat;   // depuración: > 0.5 pinta todo de magenta (solo se usa la forma/alfa de la textura)
 out vec4 oColor;
 
 void main() {
+    vec4 t = texture(uTex, vUv);
+    if (uFlat > 0.5) {
+        oColor = vec4(1.0, 0.0, 1.0, 1.0) * t.a;
+        return;
+    }
     // mismo resultado que el shader de cocos2d: color * opacidad (premultiplicado) * textura
-    oColor = texture(uTex, vUv) * vec4(vColor.rgb * vColor.a, vColor.a);
+    oColor = t * vec4(vColor.rgb * vColor.a, vColor.a);
 }
 )GLSL";
 

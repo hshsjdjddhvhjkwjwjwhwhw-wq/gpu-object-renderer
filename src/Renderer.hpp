@@ -4,6 +4,7 @@
 #include <Geode/Geode.hpp>
 #include <memory>
 #include <string>
+#include <utility>
 #include <unordered_map>
 
 // Definida en main.cpp, en el namespace GLOBAL (por eso se declara fuera de gpur).
@@ -68,6 +69,15 @@ private:
     void* m_eglContext = nullptr;  // solo Android: contexto con el que se crearon los objetos GL
     uint32_t m_tile = kTileSize;   // local_size_x real (potencia de 2, limitado por el driver)
     int m_diagFrames = 0;          // frames de diagnóstico restantes (se comprueba glGetError)
+
+    // Ajustes de depuración (mod.json "debug-*"), se leen al cargar el nivel.
+    bool m_hideVanilla = false;    // oculta los CCSpriteBatchNode vanilla de m_objectLayer
+    bool m_flatColor = false;      // pinta todos los sprites de magenta (ignora canales de color)
+    bool m_debugLog = true;        // registra muestras de sprites y estadísticas de color
+    int  m_dbgFrame = 0;
+    GLint m_uFlat = -1;
+    std::vector<geode::Ref<cocos2d::CCNode>> m_hidden;     // nodos que ocultamos (se restauran al salir)
+    std::vector<std::pair<uint32_t, uint16_t>> m_dbgTop;   // (nº de sprites, canal) de los canales más usados
     GJBaseGameLayer* m_layer = nullptr;
     LevelData m_level;
 
