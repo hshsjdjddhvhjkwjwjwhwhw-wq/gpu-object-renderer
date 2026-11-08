@@ -36,7 +36,7 @@ jobs:
         with:
           
           combine: true
-          sdk: 5.0.0
+          sdk: 5.9.0
           target: ${{ matrix.config.target }}
 
   package:
