@@ -1,6 +1,5 @@
 #include "Renderer.hpp"
 #include <Geode/Geode.hpp>
-#include <Geode/modify/GJBaseGameLayer.hpp>
 #include <Geode/modify/PlayLayer.hpp>
 
 using namespace geode::prelude;
@@ -46,8 +45,9 @@ CCNode* gpurMakeLayerNode(int zLayer) { return GpuLayerNode::create(zLayer); }
 
 // ---------------------------------------------------------------------------
 // Hooks
-// VERIFY (Android): las tres funciones enganchadas abajo (PlayLayer::setupHasCompleted,
-// PlayLayer::onQuit y GJBaseGameLayer::updateVisibility) deben tener dirección android32 y
+// NOTA: GJBaseGameLayer::updateVisibility NO se puede enganchar (definición inline en los bindings,
+// error de compilación en Android32), así que no se omite: GD sigue haciendo su culling normal.
+// VERIFY (Android): PlayLayer::setupHasCompleted y PlayLayer::onQuit deben tener dirección android32 y
 // android64 en los bindings de Geode. Si alguna falta, el compilador de Android lo dirá al
 // compilar ese hook (no hace falta cambiar nada más).
 // ---------------------------------------------------------------------------
@@ -60,15 +60,5 @@ class $modify(GpuPlayLayer, PlayLayer) {
     void onQuit() {
         Renderer::get().onLevelUnloaded();
         PlayLayer::onQuit();
-    }
-};
-
-class $modify(GpuBaseLayer, GJBaseGameLayer) {
-    // Con el renderer activo se omiten los visibility checks de GD (la parte más lenta):
-    // la GPU hace el culling. VERIFY: confirmar que esta función no hace nada más necesario
-    // para el gameplay (activación de objetos, etc.).
-    void updateVisibility(float dt) {
-        if (Renderer::get().active()) return;
-        GJBaseGameLayer::updateVisibility(dt);
     }
 };
