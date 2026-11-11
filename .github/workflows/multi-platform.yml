@@ -1,8 +1,4 @@
-# Compila el mod para Windows, Android 32 bits y Android 64 bits en GitHub Actions
-# (no hace falta compilar en el celular). Basado de memoria en la plantilla oficial de
-# mods de Geode: VERIFY comparar con https://github.com/geode-sdk/example-mod
-# (.github/workflows/multi-platform.yml) por si las versiones de las acciones cambiaron.
-name: Build Binaries
+name: Build Geode Mod
 
 on:
   workflow_dispatch:
@@ -16,14 +12,15 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - name: Windows
-            os: windows-latest
-          - name: Android32
-            os: ubuntu-latest
-            target: Android32
-          - name: Android64
-            os: ubuntu-latest
-            target: Android64
+        - name: Android64
+          os: ubuntu-latest
+          target: Android64
+        - name: Android32
+          os: ubuntu-latest
+          target: Android32
+        - name: Windows
+          os: windows-latest
+          target: Win64
 
     name: ${{ matrix.config.name }}
     runs-on: ${{ matrix.config.os }}
@@ -34,15 +31,13 @@ jobs:
       - name: Build the mod
         uses: geode-sdk/build-geode-mod@main
         with:
-          
           combine: true
-          sdk: 5.9.0
           target: ${{ matrix.config.target }}
 
   package:
     name: Package builds
     runs-on: ubuntu-latest
-    needs: ["build"]
+    needs: ['build']
 
     steps:
       - uses: geode-sdk/build-geode-mod/combine@main
