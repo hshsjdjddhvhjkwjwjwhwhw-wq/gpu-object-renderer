@@ -4,9 +4,27 @@
 #include <Geode/cocos/platform/CCGL.h>
 
 #ifdef GEODE_IS_ANDROID
+#pragma push_macro("glBindVertexArray")
+#pragma push_macro("glDeleteVertexArrays")
+#pragma push_macro("glGenVertexArrays")
+#pragma push_macro("glBindVertexArrayOES")
+#pragma push_macro("glDeleteVertexArraysOES")
+#pragma push_macro("glGenVertexArraysOES")
+#undef glBindVertexArray
+#undef glDeleteVertexArrays
+#undef glGenVertexArrays
+#undef glBindVertexArrayOES
+#undef glDeleteVertexArraysOES
+#undef glGenVertexArraysOES
 #include <EGL/egl.h>
 #include <GLES3/gl31.h>
 #include <GLES2/gl2ext.h>
+#pragma pop_macro("glBindVertexArray")
+#pragma pop_macro("glDeleteVertexArrays")
+#pragma pop_macro("glGenVertexArrays")
+#pragma pop_macro("glBindVertexArrayOES")
+#pragma pop_macro("glDeleteVertexArraysOES")
+#pragma pop_macro("glGenVertexArraysOES")
 #endif
 
 /*
