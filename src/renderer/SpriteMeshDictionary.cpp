@@ -21,9 +21,6 @@ class $modify(SpriteMeshDictionaryCCSprite, CCSprite) {
         return false;
     }
 
-    ~SpriteMeshDictionaryCCSprite() {
-        spriteFramesOfSprites.erase(this);
-    }
 };
 
 static std::unordered_map<CCSpriteFrame*, ConvexList> spriteMeshesPerFrame;
